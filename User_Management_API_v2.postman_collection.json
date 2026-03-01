@@ -1,0 +1,240 @@
+{
+  "info": {
+    "name": "User Management API v2 (JWT)",
+    "description": "Full API collection with JWT Auth, Rate Limiting & Role-Based Access.\n\n**Flow:**\n1. Register or Login → copy the `token` from the response\n2. Set it in the collection variable `jwtToken`\n3. All other requests use it automatically",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{jwtToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl",   "value": "http://localhost:3000", "type": "string" },
+    { "key": "jwtToken",  "value": "",                      "type": "string" },
+    { "key": "userId",    "value": "",                      "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health" }
+          }
+        },
+        {
+          "name": "API Info",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const res = pm.response.json();",
+                "if (res.token) {",
+                "  pm.collectionVariables.set('jwtToken', res.token);",
+                "  pm.collectionVariables.set('userId', res.data.user._id);",
+                "  console.log('✅ Token saved!');",
+                "}",
+                "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                "pm.test('Token returned', () => pm.expect(res.token).to.be.a('string'));",
+                "pm.test('Password not returned', () => pm.expect(res.data.user.password).to.be.undefined);"
+              ]
+            }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Admin\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"Secret123\",\n  \"age\": 30\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const res = pm.response.json();",
+                "if (res.token) {",
+                "  pm.collectionVariables.set('jwtToken', res.token);",
+                "  pm.collectionVariables.set('userId', res.data.user._id);",
+                "  console.log('✅ Token saved:', res.token.substring(0,20) + '...');",
+                "}",
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Token exists', () => pm.expect(res.token).to.be.a('string'));"
+              ]
+            }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"Secret123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login - Wrong Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"WrongPass\"\n}" }
+          }
+        },
+        {
+          "name": "Get My Profile (/me)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/auth/me" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/auth/logout" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users - READ",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/users" }
+          }
+        },
+        {
+          "name": "Get Users - Paginated",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/users?page=1&limit=5",
+              "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "5" }]
+            }
+          }
+        },
+        {
+          "name": "Get Users - Search",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/users?search=alice", "query": [{ "key": "search", "value": "alice" }] }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/users/{{userId}}" }
+          }
+        },
+        {
+          "name": "Get User - No Token (401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/users" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users - CREATE",
+      "item": [
+        {
+          "name": "Create User (Admin only)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const res = pm.response.json();",
+                "if (res.data?.user?._id) pm.collectionVariables.set('userId', res.data.user._id);",
+                "pm.test('Status 201', () => pm.response.to.have.status(201));"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/users" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bob Smith\",\n  \"email\": \"bob@example.com\",\n  \"password\": \"BobPass1\",\n  \"role\": \"user\",\n  \"age\": 25\n}"
+            }
+          }
+        },
+        {
+          "name": "Create User - Validation Error (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/users" },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"A\",\n  \"email\": \"bad-email\",\n  \"password\": \"123\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users - UPDATE",
+      "item": [
+        {
+          "name": "Update User (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/users/{{userId}}" },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Bob Updated\",\n  \"age\": 26\n}" }
+          }
+        },
+        {
+          "name": "Partial Update (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/users/{{userId}}" },
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+1-555-1234\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users - DELETE",
+      "item": [
+        {
+          "name": "Delete User by ID",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/users/{{userId}}" }
+          }
+        }
+      ]
+    }
+  ]
+}
